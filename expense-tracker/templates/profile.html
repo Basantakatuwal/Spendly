@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Profile — Spendly{% endblock %}
+
+{% block content %}
+
+<section class="legal-section">
+    <div class="legal-inner">
+        <h1 class="legal-title">Your profile</h1>
+
+        <div class="auth-card">
+            <div class="form-group">
+                <label>Full name</label>
+                <p>{{ user.name }}</p>
+            </div>
+            <div class="form-group">
+                <label>Email address</label>
+                <p>{{ user.email }}</p>
+            </div>
+            <div class="form-group">
+                <label>Member since</label>
+                <p>{{ user.created_at }}</p>
+            </div>
+        </div>
+
+        <p class="auth-switch">
+            <a href="{{ url_for('list_expenses') }}">View your expenses</a>
+        </p>
+
+        <p class="auth-switch">
+            <a href="{{ url_for('logout') }}">Sign out</a>
+        </p>
+    </div>
+</section>
+
+{% endblock %}
