@@ -18,8 +18,22 @@ with app.app_context():
 # Routes                                                              #
 # ------------------------------------------------------------------ #
 
+@app.context_processor
+def inject_current_user():
+    if "user_id" not in session:
+        return {}
+
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+    conn.close()
+
+    return {"current_user": user}
+
+
 @app.route("/")
 def landing():
+    if "user_id" in session:
+        return profile()
     return render_template("landing.html")
 
 
@@ -70,7 +84,7 @@ def login():
             return render_template("login.html", error="Invalid email or password.")
 
         session["user_id"] = user["id"]
-        return redirect(url_for("profile"))
+        return redirect(url_for("landing"))
 
     return render_template("login.html")
 
