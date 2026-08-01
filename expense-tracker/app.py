@@ -4,10 +4,25 @@ from datetime import datetime
 from flask import Flask, abort, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from database.db import CATEGORIES, get_db, get_expense_summary, get_user_by_id, init_db, seed_db
+from database.db import (
+    CATEGORIES,
+    get_category_breakdown,
+    get_db,
+    get_expense_totals,
+    get_expenses_by_user,
+    get_user_by_id,
+    init_db,
+    seed_db,
+)
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
+
+
+@app.template_filter("humandate")
+def humandate(value):
+    return datetime.strptime(value, "%Y-%m-%d").strftime("%b %d, %Y")
+
 
 with app.app_context():
     init_db()
@@ -98,10 +113,14 @@ def profile():
     if user is None:
         abort(404)
 
-    summary = get_expense_summary(session["user_id"])
+    stats = get_expense_totals(session["user_id"])
+    expenses = get_expenses_by_user(session["user_id"])
+    categories = get_category_breakdown(session["user_id"])
     member_since = datetime.strptime(user["created_at"], "%Y-%m-%d %H:%M:%S").strftime("%B %d, %Y")
 
-    return render_template("profile.html", user=user, summary=summary, member_since=member_since)
+    return render_template(
+        "profile.html", user=user, stats=stats, expenses=expenses, categories=categories, member_since=member_since
+    )
 
 
 @app.route("/terms")

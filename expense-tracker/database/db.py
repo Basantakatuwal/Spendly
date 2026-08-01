@@ -30,14 +30,14 @@ def get_user_by_id(user_id):
     return user
 
 
-def get_expense_summary(user_id):
+def get_expense_totals(user_id):
     conn = get_db()
     totals = conn.execute(
         "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?",
         (user_id,),
     ).fetchone()
     top = conn.execute(
-        "SELECT category FROM expenses WHERE user_id = ? GROUP BY category ORDER BY COUNT(*) DESC LIMIT 1",
+        "SELECT category FROM expenses WHERE user_id = ? GROUP BY category ORDER BY SUM(amount) DESC LIMIT 1",
         (user_id,),
     ).fetchone()
     conn.close()
@@ -47,6 +47,47 @@ def get_expense_summary(user_id):
         "count": totals["count"],
         "top_category": top["category"] if top else None,
     }
+
+
+def get_expenses_by_user(user_id):
+    conn = get_db()
+    expenses = conn.execute(
+        "SELECT * FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC",
+        (user_id,),
+    ).fetchall()
+    conn.close()
+    return expenses
+
+
+def get_category_breakdown(user_id):
+    conn = get_db()
+    total_row = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    rows = conn.execute(
+        """
+        SELECT category, SUM(amount) AS amount
+        FROM expenses
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY amount DESC
+        """,
+        (user_id,),
+    ).fetchall()
+    conn.close()
+
+    total = total_row["total"]
+    # Percentages are relative to the user's total spend (not the top
+    # category) so that all category percentages sum to 100%.
+    return [
+        {
+            "name": row["category"],
+            "amount": row["amount"],
+            "percentage": (row["amount"] / total * 100) if total else 0,
+        }
+        for row in rows
+    ]
 
 
 def init_db():
