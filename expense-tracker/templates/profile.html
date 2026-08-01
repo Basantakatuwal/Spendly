@@ -9,17 +9,28 @@
         <h1 class="legal-title">Welcome back, {{ user.name }}!</h1>
 
         <div class="auth-card">
-            <div class="form-group">
-                <label>Full name</label>
-                <p>{{ user.name }}</p>
+            <div class="profile-header">
+                <div class="profile-avatar">{{ user.name[0]|upper }}</div>
+                <div>
+                    <p class="profile-name">{{ user.name }}</p>
+                    <p class="profile-email">{{ user.email }}</p>
+                    <p class="profile-member-since">Member since {{ member_since }}</p>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Email address</label>
-                <p>{{ user.email }}</p>
-            </div>
-            <div class="form-group">
-                <label>Member since</label>
-                <p>{{ user.created_at }}</p>
+
+            <div class="profile-stats">
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Total spent</span>
+                    <span class="profile-stat-value">NRS {{ "{:,.2f}".format(summary.total) }}</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Expenses</span>
+                    <span class="profile-stat-value">{{ summary.count }}</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Top category</span>
+                    <span class="profile-stat-value">{{ summary.top_category or "—" }}</span>
+                </div>
             </div>
         </div>
 
