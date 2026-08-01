@@ -23,6 +23,32 @@ def get_db():
     return conn
 
 
+def get_user_by_id(user_id):
+    conn = get_db()
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return user
+
+
+def get_expense_summary(user_id):
+    conn = get_db()
+    totals = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    top = conn.execute(
+        "SELECT category FROM expenses WHERE user_id = ? GROUP BY category ORDER BY COUNT(*) DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+
+    return {
+        "total": totals["total"],
+        "count": totals["count"],
+        "top_category": top["category"] if top else None,
+    }
+
+
 def init_db():
     conn = get_db()
     conn.execute("""
