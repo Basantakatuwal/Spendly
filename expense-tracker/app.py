@@ -113,13 +113,42 @@ def profile():
     if user is None:
         abort(404)
 
-    stats = get_expense_totals(session["user_id"])
-    expenses = get_expenses_by_user(session["user_id"])
-    categories = get_category_breakdown(session["user_id"])
+    start_date = request.args.get("start_date", "").strip()
+    end_date = request.args.get("end_date", "").strip()
+
+    filter_error = None
+    valid_start = None
+    valid_end = None
+
+    if start_date or end_date:
+        try:
+            if start_date:
+                datetime.strptime(start_date, "%Y-%m-%d")
+            if end_date:
+                datetime.strptime(end_date, "%Y-%m-%d")
+            if start_date and end_date and start_date > end_date:
+                filter_error = "Start date must be before end date."
+            else:
+                valid_start = start_date or None
+                valid_end = end_date or None
+        except ValueError:
+            filter_error = "Enter valid dates in YYYY-MM-DD format."
+
+    stats = get_expense_totals(session["user_id"], valid_start, valid_end)
+    expenses = get_expenses_by_user(session["user_id"], valid_start, valid_end)
+    categories = get_category_breakdown(session["user_id"], valid_start, valid_end)
     member_since = datetime.strptime(user["created_at"], "%Y-%m-%d %H:%M:%S").strftime("%B %d, %Y")
 
     return render_template(
-        "profile.html", user=user, stats=stats, expenses=expenses, categories=categories, member_since=member_since
+        "profile.html",
+        user=user,
+        stats=stats,
+        expenses=expenses,
+        categories=categories,
+        member_since=member_since,
+        start_date=start_date,
+        end_date=end_date,
+        filter_error=filter_error,
     )
 
 
