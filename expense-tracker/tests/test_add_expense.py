@@ -10,6 +10,7 @@ new implementation.
 
 from conftest import add_expense, login, register
 
+import database.db as db_module
 from database.db import CATEGORIES
 
 
@@ -62,6 +63,39 @@ def test_valid_submit_creates_expense_and_redirects_to_expenses(logged_in_client
     assert "42.50" in html
 
 
+def test_valid_submit_inserts_row_scoped_to_current_user(logged_in_client):
+    add_expense(logged_in_client, 42.50, "Food", "2020-05-15", "Groceries")
+
+    with logged_in_client.session_transaction() as sess:
+        user_id = sess["user_id"]
+
+    conn = db_module.get_db()
+    row = conn.execute(
+        "SELECT * FROM expenses WHERE user_id = ? AND description = ?",
+        (user_id, "Groceries"),
+    ).fetchone()
+    conn.close()
+
+    assert row is not None
+    assert row["amount"] == 42.50
+    assert row["category"] == "Food"
+    assert row["date"] == "2020-05-15"
+    assert row["user_id"] == user_id
+
+
+def test_new_expense_appears_at_top_of_list(logged_in_client):
+    add_expense(logged_in_client, 10.00, "Food", "2020-01-01", "Older expense")
+    add_expense(logged_in_client, 20.00, "Transport", "2020-06-01", "Newer expense")
+
+    list_resp = logged_in_client.get("/expenses")
+    html = list_resp.get_data(as_text=True)
+
+    assert "Older expense" in html
+    assert "Newer expense" in html
+    # The most recently dated expense should render first (top of the list).
+    assert html.index("Newer expense") < html.index("Older expense")
+
+
 def test_valid_submit_with_blank_description_stores_null_and_renders_dash(logged_in_client):
     resp = add_expense(logged_in_client, 10.00, "Other", "2020-05-15", description="")
     assert resp.status_code in (301, 302)
@@ -70,6 +104,23 @@ def test_valid_submit_with_blank_description_stores_null_and_renders_dash(logged
     assert list_resp.status_code == 200
     html = list_resp.get_data(as_text=True)
     assert "—" in html
+
+
+def test_valid_submit_with_blank_description_stores_null_in_db(logged_in_client):
+    add_expense(logged_in_client, 10.00, "Other", "2020-05-15", description="")
+
+    with logged_in_client.session_transaction() as sess:
+        user_id = sess["user_id"]
+
+    conn = db_module.get_db()
+    row = conn.execute(
+        "SELECT * FROM expenses WHERE user_id = ? AND category = ?",
+        (user_id, "Other"),
+    ).fetchone()
+    conn.close()
+
+    assert row is not None
+    assert row["description"] is None
 
 
 # ------------------------------------------------------------------ #
@@ -87,6 +138,25 @@ def test_missing_required_fields_shows_inline_error(logged_in_client):
     assert "Amount, category, and date are required." in html
     for category in CATEGORIES:
         assert f'<option value="{category}">{category}</option>' in html
+
+
+def test_missing_required_fields_does_not_insert_row(logged_in_client):
+    logged_in_client.post(
+        "/expenses/add",
+        data={"amount": "", "category": "", "date": ""},
+        follow_redirects=False,
+    )
+
+    with logged_in_client.session_transaction() as sess:
+        user_id = sess["user_id"]
+
+    conn = db_module.get_db()
+    count = conn.execute(
+        "SELECT COUNT(*) AS count FROM expenses WHERE user_id = ?", (user_id,)
+    ).fetchone()["count"]
+    conn.close()
+
+    assert count == 0
 
 
 def test_non_numeric_amount_shows_inline_error(logged_in_client):
